@@ -66,21 +66,23 @@ public class DistributedCacheImpl implements DistributedCache, DistributedCacheS
     private int virtualNodeNum;
     private final Map<String, Node> nodes;
     private final List<VirtualNode> virtualNodes;
+    private final SearchTargetVirtualNode searchTargetVirtualNode;
 
 
     public DistributedCacheImpl(){
-        this.nodeNum = NODE_NUM;
-        this.virtualNodeNum = VIRTUAL_NODE_NUM;
-        this.nodes = new HashMap<>(nodeNum);
-        this.virtualNodes = new ArrayList<>(nodeNum * virtualNodeNum);
-        initNodes(nodeNum,virtualNodeNum);
+        this(NODE_NUM, VIRTUAL_NODE_NUM);
     }
 
-    public DistributedCacheImpl(int nodeNum,int virtualNodeNum){
+    public DistributedCacheImpl(int nodeNum, int virtualNodeNum){
+        this(nodeNum, virtualNodeNum, new BinarySearchTargetVirtualNode());
+    }
+
+    public DistributedCacheImpl(int nodeNum,int virtualNodeNum, SearchTargetVirtualNode searchTargetVirtualNode){
         this.nodeNum = nodeNum;
         this.virtualNodeNum = virtualNodeNum;
         this.nodes = new HashMap<>(nodeNum);
         this.virtualNodes = new ArrayList<>(nodeNum * virtualNodeNum);
+        this.searchTargetVirtualNode = searchTargetVirtualNode;
         initNodes(nodeNum,virtualNodeNum);
     }
 
@@ -108,10 +110,8 @@ public class DistributedCacheImpl implements DistributedCache, DistributedCacheS
     public void put(Iterable<String> iterable) {
         iterable.forEach(key -> {
             // 查询对应的virtualNode
-            SearchTargetVirtualNode searchTargetVirtualNode = new NormalSearchTargetVirtualNode();
             VirtualNode virtualNode = searchTargetVirtualNode.search(virtualNodes,key);
             Node node = virtualNode.getNode();
-            // 节约内存，测试时value为固定值
             node.put(key,1);
         });
     }
@@ -187,7 +187,10 @@ interface SearchTargetVirtualNode{
     VirtualNode search(List<VirtualNode> virtualNodes, String key);
 }
 
-class NormalSearchTargetVirtualNode implements SearchTargetVirtualNode{
+/**
+ * 顺序查找
+ */
+class SequenceSearchTargetVirtualNode implements SearchTargetVirtualNode{
 
     @Override
     public VirtualNode search(List<VirtualNode> virtualNodes, String key) {
@@ -201,6 +204,40 @@ class NormalSearchTargetVirtualNode implements SearchTargetVirtualNode{
         return virtualNodes.get(0);
     }
 }
+
+/**
+ * 二分查找
+ */
+class BinarySearchTargetVirtualNode implements SearchTargetVirtualNode{
+
+    @Override
+    public VirtualNode search(List<VirtualNode> virtualNodes, String key) {
+        int keyHashCode = Objects.hashCode(key);
+        int min = 0;
+        int max = virtualNodes.size() - 1;
+        // 小于等于最小的节点 或者 大于最大的节点，则直接选取第一个节点
+        if(keyHashCode <= virtualNodes.get(0).hashCode() || keyHashCode > virtualNodes.get(max).hashCode()){
+            return virtualNodes.get(max);
+        }
+        while(true){
+            int middle = (min + max) / 2;
+            VirtualNode target = virtualNodes.get(middle);
+            if(keyHashCode < target.hashCode()){
+                max = middle;
+            }
+            if(keyHashCode > target.hashCode()){
+                min = middle;
+            }
+            if(keyHashCode == target.hashCode()){
+                return target;
+            }
+            if(max - min == 1){
+                return virtualNodes.get(max);
+            }
+        }
+    }
+}
+
 ```
 
 ## 测试结果
@@ -251,11 +288,11 @@ public class DistributedCacheTest {
 最终分布情况还算均匀，可以看到每个真实节点存放的数据量在9万到11万之间。
 
 ```
-[Log] 2020-07-05 23:08:40 224   生成测试数据 
-[Log] 2020-07-05 23:08:41 757   测试数据完成，1000000 
-[Log] 2020-07-05 23:08:41 757   装载cache 
-[Log] 2020-07-05 23:08:48 112   装载完成 
-[Log] 2020-07-05 23:08:48 117   结果集: [92822, 98179, 107292, 92384, 99617, 105647, 97004, 99955, 101441, 105659] 
-[Log] 2020-07-05 23:08:48 117   标准差: 4910.504515831341 
+[Log] 2020-07-06 23:24:18 165   生成测试数据 
+[Log] 2020-07-06 23:24:19 810   测试数据完成，1000000 
+[Log] 2020-07-06 23:24:19 810   装载cache 
+[Log] 2020-07-06 23:24:20 613   装载完成 
+[Log] 2020-07-06 23:24:20 620   结果集: [103995, 103735, 104075, 98705, 90734, 85705, 107503, 99622, 107445, 98481] 
+[Log] 2020-07-06 23:24:20 620   标准差: 6727.346876741231 
 ```
 

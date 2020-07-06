@@ -13,21 +13,23 @@ public class DistributedCacheImpl implements DistributedCache, DistributedCacheS
     private int virtualNodeNum;
     private final Map<String, Node> nodes;
     private final List<VirtualNode> virtualNodes;
+    private final SearchTargetVirtualNode searchTargetVirtualNode;
 
 
     public DistributedCacheImpl(){
-        this.nodeNum = NODE_NUM;
-        this.virtualNodeNum = VIRTUAL_NODE_NUM;
-        this.nodes = new HashMap<>(nodeNum);
-        this.virtualNodes = new ArrayList<>(nodeNum * virtualNodeNum);
-        initNodes(nodeNum,virtualNodeNum);
+        this(NODE_NUM, VIRTUAL_NODE_NUM);
     }
 
-    public DistributedCacheImpl(int nodeNum,int virtualNodeNum){
+    public DistributedCacheImpl(int nodeNum, int virtualNodeNum){
+        this(nodeNum, virtualNodeNum, new BinarySearchTargetVirtualNode());
+    }
+
+    public DistributedCacheImpl(int nodeNum,int virtualNodeNum, SearchTargetVirtualNode searchTargetVirtualNode){
         this.nodeNum = nodeNum;
         this.virtualNodeNum = virtualNodeNum;
         this.nodes = new HashMap<>(nodeNum);
         this.virtualNodes = new ArrayList<>(nodeNum * virtualNodeNum);
+        this.searchTargetVirtualNode = searchTargetVirtualNode;
         initNodes(nodeNum,virtualNodeNum);
     }
 
@@ -55,7 +57,6 @@ public class DistributedCacheImpl implements DistributedCache, DistributedCacheS
     public void put(Iterable<String> iterable) {
         iterable.forEach(key -> {
             // 查询对应的virtualNode
-            SearchTargetVirtualNode searchTargetVirtualNode = new NormalSearchTargetVirtualNode();
             VirtualNode virtualNode = searchTargetVirtualNode.search(virtualNodes,key);
             Node node = virtualNode.getNode();
             node.put(key,1);
@@ -133,7 +134,10 @@ interface SearchTargetVirtualNode{
     VirtualNode search(List<VirtualNode> virtualNodes, String key);
 }
 
-class NormalSearchTargetVirtualNode implements SearchTargetVirtualNode{
+/**
+ * 顺序查找
+ */
+class SequenceSearchTargetVirtualNode implements SearchTargetVirtualNode{
 
     @Override
     public VirtualNode search(List<VirtualNode> virtualNodes, String key) {
@@ -145,5 +149,38 @@ class NormalSearchTargetVirtualNode implements SearchTargetVirtualNode{
         }
         // 如果比最大的虚拟节点还要大，则返回第一个虚拟节点
         return virtualNodes.get(0);
+    }
+}
+
+/**
+ * 二分查找
+ */
+class BinarySearchTargetVirtualNode implements SearchTargetVirtualNode{
+
+    @Override
+    public VirtualNode search(List<VirtualNode> virtualNodes, String key) {
+        int keyHashCode = Objects.hashCode(key);
+        int min = 0;
+        int max = virtualNodes.size() - 1;
+        // 小于等于最小的节点 或者 大于最大的节点，则直接选取第一个节点
+        if(keyHashCode <= virtualNodes.get(0).hashCode() || keyHashCode > virtualNodes.get(max).hashCode()){
+            return virtualNodes.get(max);
+        }
+        while(true){
+            int middle = (min + max) / 2;
+            VirtualNode target = virtualNodes.get(middle);
+            if(keyHashCode < target.hashCode()){
+                max = middle;
+            }
+            if(keyHashCode > target.hashCode()){
+                min = middle;
+            }
+            if(keyHashCode == target.hashCode()){
+                return target;
+            }
+            if(max - min == 1){
+                return virtualNodes.get(max);
+            }
+        }
     }
 }

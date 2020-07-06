@@ -4,9 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
 import java.util.List;
-import java.util.Objects;
-
-import static org.junit.Assert.*;
 
 @Slf4j
 public class DistributedCacheTest {
@@ -26,7 +23,7 @@ public class DistributedCacheTest {
 
         // 将key装载到Cache中
         log.info("装载cache");
-        DistributedCache distributedCache = new DistributedCacheImpl(NODE_NUM,VIRTUAL_NODE_NUM);
+        DistributedCache distributedCache = new DistributedCacheImpl(NODE_NUM,VIRTUAL_NODE_NUM, new BinarySearchTargetVirtualNode());
         distributedCache.put(keys);
         log.info("装载完成");
 
