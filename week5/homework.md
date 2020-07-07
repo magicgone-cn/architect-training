@@ -107,13 +107,11 @@ public class DistributedCacheImpl implements DistributedCache, DistributedCacheS
     }
 
     @Override
-    public void put(Iterable<String> iterable) {
-        iterable.forEach(key -> {
-            // 查询对应的virtualNode
-            VirtualNode virtualNode = searchTargetVirtualNode.search(virtualNodes,key);
-            Node node = virtualNode.getNode();
-            node.put(key,1);
-        });
+    public void put(String key, Object value) {
+        // 查询对应的virtualNode
+        VirtualNode virtualNode = searchTargetVirtualNode.search(virtualNodes,key);
+        Node node = virtualNode.getNode();
+        node.put(key,value);
     }
 }
 
@@ -238,6 +236,7 @@ class BinarySearchTargetVirtualNode implements SearchTargetVirtualNode{
     }
 }
 
+
 ```
 
 ## 测试结果
@@ -251,9 +250,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
 import java.util.List;
-import java.util.Objects;
-
-import static org.junit.Assert.*;
 
 @Slf4j
 public class DistributedCacheTest {
@@ -273,8 +269,8 @@ public class DistributedCacheTest {
 
         // 将key装载到Cache中
         log.info("装载cache");
-        DistributedCache distributedCache = new DistributedCacheImpl(NODE_NUM,VIRTUAL_NODE_NUM);
-        distributedCache.put(keys);
+        DistributedCache distributedCache = new DistributedCacheImpl(NODE_NUM,VIRTUAL_NODE_NUM, new BinarySearchTargetVirtualNode());
+        keys.forEach(key -> distributedCache.put(key,1)); // 测试使用固定的value
         log.info("装载完成");
 
         // 计算得分
@@ -283,6 +279,7 @@ public class DistributedCacheTest {
         log.info("标准差: {}",distributedCacheScore.score());
     }
 }
+
 ```
 
 最终分布情况还算均匀，可以看到每个真实节点存放的数据量在9万到11万之间。

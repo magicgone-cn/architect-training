@@ -24,7 +24,7 @@ public class DistributedCacheTest {
         // 将key装载到Cache中
         log.info("装载cache");
         DistributedCache distributedCache = new DistributedCacheImpl(NODE_NUM,VIRTUAL_NODE_NUM, new BinarySearchTargetVirtualNode());
-        distributedCache.put(keys);
+        keys.forEach(key -> distributedCache.put(key,1)); // 测试使用固定的value
         log.info("装载完成");
 
         // 计算得分

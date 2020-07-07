@@ -54,13 +54,11 @@ public class DistributedCacheImpl implements DistributedCache, DistributedCacheS
     }
 
     @Override
-    public void put(Iterable<String> iterable) {
-        iterable.forEach(key -> {
-            // 查询对应的virtualNode
-            VirtualNode virtualNode = searchTargetVirtualNode.search(virtualNodes,key);
-            Node node = virtualNode.getNode();
-            node.put(key,1);
-        });
+    public void put(String key, Object value) {
+        // 查询对应的virtualNode
+        VirtualNode virtualNode = searchTargetVirtualNode.search(virtualNodes,key);
+        Node node = virtualNode.getNode();
+        node.put(key,value);
     }
 }
 
