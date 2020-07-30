@@ -20,8 +20,10 @@ while(true){
         node2 = node2.nextNode;
     }
     
-    return null;
 }
+
+return null;
+
 ```
 
 时间复杂度为O(m+n)
